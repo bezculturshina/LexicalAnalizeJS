@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "LexicalAnalizer": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\Users\\user\\source\\repos\\LexicalAnalizer\\LexicalAnalizer\\example1.txt",
+      "workingDirectory": "C:\\Users\\user\\source\\repos\\LexicalAnalizer\\LexicalAnalizer\\example1.txt"
+    },
+    "Профиль 1": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Users\\user\\source\\repos\\LexicalAnalizer\\LexicalAnalizer\\bin\\Debug\\net8.0\\LexicalAnalizer.exe",
+      "commandLineArgs": "C:\\Users\\user\\source\\repos\\LexicalAnalizer\\LexicalAnalizer\\example1.txt"
+    }
+  }
+}
