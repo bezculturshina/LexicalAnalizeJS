@@ -13,7 +13,7 @@ namespace LexicalAnalizer
                 Text.NextCh();
             }
             Console.WriteLine();
-            Console.WriteLine(new string(' ', p) + "^");
+            Console.WriteLine(new string(' ', p - 1) + "^");
 
             Console.WriteLine(msg);
             Console.WriteLine("\n\n\n\n\n");
