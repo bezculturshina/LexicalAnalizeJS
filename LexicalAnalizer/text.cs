@@ -1,5 +1,6 @@
 ﻿// Text.cs
 using System;
+using System.Data.Common;
 using System.IO;
 
 namespace LexicalAnalizer
@@ -15,6 +16,9 @@ namespace LexicalAnalizer
         private static int _i = 0;
         public static char ch = '\0';
         private static int _currentLine = 1;
+        private static int _column = 1;
+        private static int _carriageReturns = 0;
+        public static int GetCurrentColumn() => _column;
 
         public static void Reset()
         {
@@ -28,7 +32,9 @@ namespace LexicalAnalizer
             {
                 try
                 {
-                    _scr = File.ReadAllText(args[1]);
+                    //_scr = File.ReadAllText(args[1]);
+                    _scr = File.ReadAllText(args[1]).Replace("\r", "");
+
                 }
                 catch
                 {
@@ -37,6 +43,7 @@ namespace LexicalAnalizer
             }
         }
 
+        
         public static void NextCh()
         {
             if (_i < _scr.Length)
@@ -50,7 +57,13 @@ namespace LexicalAnalizer
                     ch = chEOL;
                     Loc.pos = 0;
                     _currentLine++;
+                    _column = 1;
                 }
+                else
+                {
+                    _column++;
+                }
+
             }
             else
             {
@@ -60,7 +73,7 @@ namespace LexicalAnalizer
 
         public static int GetCurrentLine()
         {
-            return _currentLine;
+            return _currentLine - _carriageReturns;           
         }
     }
 }

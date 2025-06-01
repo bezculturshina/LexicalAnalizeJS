@@ -12,10 +12,11 @@ namespace LexicalAnalizer
             int n = 0;
             while (Lexer.currentLex != Lex.EOT)
             {
-                //Console.WriteLine(new string(' ', 36) + Lexer.currentLex);
+                Loc.lexPos = Loc.pos; // <-- сохраняем позицию начала лексемы
                 Lexer.NextLex();
                 n++;
             }
+
             Console.WriteLine();
             Console.WriteLine("Число лексем " + n);
 

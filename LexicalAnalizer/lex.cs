@@ -18,8 +18,12 @@ namespace LexicalAnalizer
         EQUAL, STRICT_EQUAL, NOT_EQUAL, STRICT_NOT_EQUAL, GREATER, LESS, GREATER_EQUAL, LESS_EQUAL,
         LOGICAL_AND, LOGICAL_OR, LOGICAL_NOT, BITWISE_AND, BITWISE_OR, BITWISE_XOR, BITWISE_NOT, LEFT_SHIFT, RIGHT_SHIFT, UNSIGNED_RIGHT_SHIFT,
         QUESTION, COLON, SEMICOLON, COMMA, DOT, ARROW,
-        LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET, STR, NUM
+        LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET, STR, NUM, POWER, POWER_ASSIGN, NULLISH_COALESCING, 
+        OPTIONAL_CHAINING, SPREAD, LEFT_SHIFT_ASSIGN, RIGHT_SHIFT_ASSIGN, UNSIGNED_RIGHT_SHIFT_ASSIGN, BITWISE_AND_ASSIGN, BITWISE_OR_ASSIGN,    
+        BITWISE_XOR_ASSIGN, LOG, INFO, WARN, ERROR, DEBUG, TRACE, DIR, DIRXML, TABLE, GROUP, GROUPCOLLAPSED, GROUPEND,
+        COUNT, COUNTRESET, ASSERT, CLEAR, TIME, TIMELOG, TIMEEND, PROFILE, PROFILEEND, TIMESTAMP, MEMORY
     }
+
 
     public static class Lexer
     {
@@ -87,9 +91,32 @@ namespace LexicalAnalizer
         {"protected", Lex.PROTECTED},
         {"public", Lex.PUBLIC},
         {"static", Lex.STATIC},
-        {"console", Lex.CONSOLE},
         {"arguments", Lex.ARGUMENTS},
         {"eval", Lex.EVAL},
+        {"console", Lex.CONSOLE},
+        {"log", Lex.LOG},
+        {"info", Lex.INFO},
+        {"warn", Lex.WARN},
+        {"error", Lex.ERROR},
+        {"debug", Lex.DEBUG},
+        {"trace", Lex.TRACE},
+        {"dir", Lex.DIR},
+        {"dirxml", Lex.DIRXML},
+        {"table", Lex.TABLE},
+        {"group", Lex.GROUP},
+        {"groupCollapsed", Lex.GROUPCOLLAPSED},
+        {"groupEnd", Lex.GROUPEND},
+        {"count", Lex.COUNT},
+        {"countReset", Lex.COUNTRESET},
+        {"assert", Lex.ASSERT},
+        {"clear", Lex.CLEAR},
+        {"time", Lex.TIME},
+        {"timeLog", Lex.TIMELOG},
+        {"timeEnd", Lex.TIMEEND},
+        {"profile", Lex.PROFILE},
+        {"profileEnd", Lex.PROFILEEND},
+        {"timeStamp", Lex.TIMESTAMP},
+        {"memory", Lex.MEMORY},
         {"+", Lex.PLUS},
         {"-", Lex.MINUS},
         {"*", Lex.MULTIPLY},
@@ -132,7 +159,15 @@ namespace LexicalAnalizer
         {"{", Lex.LEFT_BRACE},
         {"}", Lex.RIGHT_BRACE},
         {"[", Lex.LEFT_BRACKET},
-        {"]", Lex.RIGHT_BRACKET}
+        {"]", Lex.RIGHT_BRACKET},
+        {"**", Lex.POWER},
+        {"**=", Lex.POWER_ASSIGN},
+        {"??", Lex.NULLISH_COALESCING},
+        {"?.", Lex.OPTIONAL_CHAINING},
+        {"...", Lex.SPREAD},
+        {"|=", Lex.BITWISE_OR_ASSIGN},
+
+
     };
 
         public static Lex currentLex;
@@ -150,7 +185,9 @@ namespace LexicalAnalizer
             public string Name { get; set; }
             public string File { get; set; }
             public int Line { get; set; }
+            public int Column { get; set; } // <-- добавили координату
         }
+
 
         public static void PrintStatistics()
         {
@@ -170,7 +207,10 @@ namespace LexicalAnalizer
             var sortedIdentifiers = identifiersInfo.OrderBy(x => x.Name).ThenBy(x => x.File).ThenBy(x => x.Line);
             foreach (var info in sortedIdentifiers)
             {
-                Console.WriteLine("{0,-20} {1,-20} {2,-10}", info.Name, info.File, info.Line);
+                Console.WriteLine("{0,-20} {1,-20} {2,-10} {3,-10}", "Имя", "Файл", "Строка", "Колонка");
+                
+                Console.WriteLine("{0,-20} {1,-20} {2,-10} {3,-10}", info.Name, info.File, info.Line, info.Column);
+
             }
         }
 
@@ -183,7 +223,7 @@ namespace LexicalAnalizer
                 name += Text.ch;
                 Text.NextCh();
             }
-
+            
             if (_kw.TryGetValue(name, out Lex lexValue))
             {
                 currentLex = lexValue;
@@ -198,7 +238,7 @@ namespace LexicalAnalizer
         public static Lex ScanNumber()
         {
             num = 0;
-            while (char.IsDigit(Text.ch) || Text.ch == '.')
+            while (char.IsDigit(Text.ch))
             {
                 int d = Text.ch - '0';
                 if (num > (maxint - d) / 10)
@@ -285,123 +325,91 @@ namespace LexicalAnalizer
 
         public static Lex NextLex()
         {
+            // После пропуска пробелов:
             while (Text.ch == Text.chSPACE || Text.ch == Text.chTAB || Text.ch == Text.chEOL)
             {
                 Text.NextCh();
             }
+            int currentLine = Text.GetCurrentLine();
+            int currentColumn = Text.GetCurrentColumn();
 
             if (char.IsLetter(Text.ch))
             {
+                //int currentLine = Text.GetCurrentLine();
+                //int currentColumn = Text.GetCurrentColumn();
+
                 currentLex = LexName();
             }
             else if (char.IsDigit(Text.ch))
             {
                 currentLex = ScanNumber();
             }
-            else if (Text.ch == ';')
-            {
-                currentLex = Lex.SEMICOLON;
-                Text.NextCh();
-            }
-            else if (Text.ch == ':')
-            {
-                currentLex = Lex.COLON;
-                Text.NextCh();
-            }
+            else if (Text.ch == ';') { currentLex = Lex.SEMICOLON; Text.NextCh(); }         // ;
+            else if (Text.ch == ':') { currentLex = Lex.COLON; Text.NextCh(); }             // :
+            else if (Text.ch == ',') { currentLex = Lex.COMMA; Text.NextCh(); }             // ,
+            else if (Text.ch == '(') { currentLex = Lex.LEFT_PAREN; Text.NextCh(); }        // (
+            else if (Text.ch == ')') { currentLex = Lex.RIGHT_PAREN; Text.NextCh(); }       // )
+            else if (Text.ch == '{') { currentLex = Lex.LEFT_BRACE; Text.NextCh(); }        // {
+            else if (Text.ch == '}') { currentLex = Lex.RIGHT_BRACE; Text.NextCh(); }       // }
+            else if (Text.ch == '[') { currentLex = Lex.LEFT_BRACKET; Text.NextCh(); }      // [
+            else if (Text.ch == ']') { currentLex = Lex.RIGHT_BRACKET; Text.NextCh(); }     // ]
             else if (Text.ch == '.')
             {
-                currentLex = Lex.DOT;
                 Text.NextCh();
-            }
-            else if (Text.ch == ',')
-            {
-                currentLex = Lex.COMMA;
-                Text.NextCh();
+                if (Text.ch == '.')
+                {
+                    Text.NextCh();
+                    if (Text.ch == '.') { currentLex = Lex.SPREAD; Text.NextCh(); }         // ...
+                    else
+                    {
+                        currentLex = Lex.DOT;                                             // .. → . + .
+                        if (lexemeCounts.ContainsKey(Lex.DOT)) lexemeCounts[Lex.DOT]++; else lexemeCounts[Lex.DOT] = 1;
+                        totalLexemes++;
+                        Console.WriteLine(Lex.DOT);
+                        return Lex.DOT;
+                    }
+                }
+                else { currentLex = Lex.DOT; }                                             // .
             }
             else if (Text.ch == '+')
             {
                 Text.NextCh();
-                if (Text.ch == '=')
-                {
-                    currentLex = Lex.PLUS_ASSIGN;
-                    Text.NextCh();
-                }
-                else if (Text.ch == '+')
-                {
-                    currentLex = Lex.INCREMENT;
-                    Text.NextCh();
-                }
-                else
-                {
-                    currentLex = Lex.PLUS;
-                }
+                if (Text.ch == '=') { currentLex = Lex.PLUS_ASSIGN; Text.NextCh(); }       // +=
+                else if (Text.ch == '+') { currentLex = Lex.INCREMENT; Text.NextCh(); }    // ++
+                else { currentLex = Lex.PLUS; }                                            // +
             }
             else if (Text.ch == '-')
             {
                 Text.NextCh();
-                if (Text.ch == '=')
-                {
-                    currentLex = Lex.MINUS_ASSIGN;
-                    Text.NextCh();
-                }
-                else if (Text.ch == '-')
-                {
-                    currentLex = Lex.DECREMENT;
-                    Text.NextCh();
-                }
-                else
-                {
-                    currentLex = Lex.MINUS;
-                }
+                if (Text.ch == '=') { currentLex = Lex.MINUS_ASSIGN; Text.NextCh(); }      // -=
+                else if (Text.ch == '-') { currentLex = Lex.DECREMENT; Text.NextCh(); }    // --
+                else { currentLex = Lex.MINUS; }                                           // -
             }
             else if (Text.ch == '*')
             {
                 Text.NextCh();
-                if (Text.ch == '=')
+                if (Text.ch == '*')
                 {
-                    currentLex = Lex.MULTIPLY_ASSIGN;
                     Text.NextCh();
+                    if (Text.ch == '=') { currentLex = Lex.POWER_ASSIGN; Text.NextCh(); }  // **=
+                    else { currentLex = Lex.POWER; }                                       // **
                 }
-                else
-                {
-                    currentLex = Lex.MULTIPLY;
-                }
+                else if (Text.ch == '=') { currentLex = Lex.MULTIPLY_ASSIGN; Text.NextCh(); } // *=
+                else { currentLex = Lex.MULTIPLY; }                                        // *
             }
             else if (Text.ch == '/')
             {
                 Text.NextCh();
-                if (Text.ch == '=')
-                {
-                    currentLex = Lex.DIVIDE_ASSIGN;
-                    Text.NextCh();
-                }
-                else if (Text.ch == '/')
-                {
-                    SingleComment();
-                    return NextLex();
-                }
-                else if (Text.ch == '*')
-                {
-                    Comment();
-                    return NextLex();
-                }
-                else
-                {
-                    currentLex = Lex.DIVIDE;
-                }
+                if (Text.ch == '=') { currentLex = Lex.DIVIDE_ASSIGN; Text.NextCh(); }     // /=
+                else if (Text.ch == '/') { SingleComment(); return NextLex(); }
+                else if (Text.ch == '*') { Comment(); return NextLex(); }
+                else { currentLex = Lex.DIVIDE; }                                          // /
             }
             else if (Text.ch == '%')
             {
                 Text.NextCh();
-                if (Text.ch == '=')
-                {
-                    currentLex = Lex.MODULO_ASSIGN;
-                    Text.NextCh();
-                }
-                else
-                {
-                    currentLex = Lex.MODULO;
-                }
+                if (Text.ch == '=') { currentLex = Lex.MODULO_ASSIGN; Text.NextCh(); }     // %=
+                else { currentLex = Lex.MODULO; }                                          // %
             }
             else if (Text.ch == '=')
             {
@@ -409,24 +417,11 @@ namespace LexicalAnalizer
                 if (Text.ch == '=')
                 {
                     Text.NextCh();
-                    if (Text.ch == '=')
-                    {
-                        currentLex = Lex.STRICT_EQUAL;
-                        Text.NextCh();
-                    }
-                    else
-                    {
-                        currentLex = Lex.EQUAL;
-                    }
+                    if (Text.ch == '=') { currentLex = Lex.STRICT_EQUAL; Text.NextCh(); }  // ===
+                    else { currentLex = Lex.EQUAL; }                                       // ==
                 }
-                else if (Text.ch == '>')
-                {
-                    currentLex = Lex.ARROW;
-                }
-                else
-                {
-                    currentLex = Lex.ASSIGN;
-                }
+                else if (Text.ch == '>') { currentLex = Lex.ARROW; Text.NextCh(); }        // =>
+                else { currentLex = Lex.ASSIGN; }                                          // =
             }
             else if (Text.ch == '!')
             {
@@ -434,76 +429,103 @@ namespace LexicalAnalizer
                 if (Text.ch == '=')
                 {
                     Text.NextCh();
-                    if (Text.ch == '=')
-                    {
-                        currentLex = Lex.STRICT_NOT_EQUAL;
-                        Text.NextCh();
-                    }
-                    else
-                    {
-                        currentLex = Lex.NOT_EQUAL;
-                    }
+                    if (Text.ch == '=') { currentLex = Lex.STRICT_NOT_EQUAL; Text.NextCh(); } // !==
+                    else { currentLex = Lex.NOT_EQUAL; }                                   // !=
                 }
-                else
-                {
-                    currentLex = Lex.LOGICAL_NOT;
-                }
+                else { currentLex = Lex.LOGICAL_NOT; }                                     // !
             }
             else if (Text.ch == '>')
             {
                 Text.NextCh();
                 if (Text.ch == '=')
                 {
-                    currentLex = Lex.GREATER_EQUAL;
+                    currentLex = Lex.GREATER_EQUAL; // >=
                     Text.NextCh();
                 }
                 else if (Text.ch == '>')
                 {
                     Text.NextCh();
-                    if (Text.ch == '>')
+                    if (Text.ch == '=')
                     {
-                        currentLex = Lex.UNSIGNED_RIGHT_SHIFT;
+                        currentLex = Lex.RIGHT_SHIFT_ASSIGN; // >>=
                         Text.NextCh();
+                    }
+                    else if (Text.ch == '>')
+                    {
+                        Text.NextCh();
+                        if (Text.ch == '=')
+                        {
+                            currentLex = Lex.UNSIGNED_RIGHT_SHIFT_ASSIGN; // >>>=
+                            Text.NextCh();
+                        }
+                        else
+                        {
+                            currentLex = Lex.UNSIGNED_RIGHT_SHIFT; // >>>
+                        }
                     }
                     else
                     {
-                        currentLex = Lex.RIGHT_SHIFT;
+                        currentLex = Lex.RIGHT_SHIFT; // >>
                     }
                 }
                 else
                 {
-                    currentLex = Lex.GREATER;
+                    currentLex = Lex.GREATER; // >
                 }
             }
+
             else if (Text.ch == '<')
             {
                 Text.NextCh();
                 if (Text.ch == '=')
                 {
-                    currentLex = Lex.LESS_EQUAL;
+                    currentLex = Lex.LESS_EQUAL; // <=
                     Text.NextCh();
                 }
                 else if (Text.ch == '<')
                 {
-                    currentLex = Lex.LEFT_SHIFT;
                     Text.NextCh();
+                    if (Text.ch == '=')
+                    {
+                        currentLex = Lex.LEFT_SHIFT_ASSIGN; // <<=
+                        Text.NextCh();
+                    }
+                    else
+                    {
+                        currentLex = Lex.LEFT_SHIFT; // <<
+                    }
                 }
                 else
                 {
-                    currentLex = Lex.LESS;
+                    currentLex = Lex.LESS; // <
                 }
+            }
+
+            else if (Text.ch == '&')
+            {
+                Text.NextCh();
+                if (Text.ch == '&') { currentLex = Lex.LOGICAL_AND; Text.NextCh(); }            // &&
+                else if (Text.ch == '=') { currentLex = Lex.BITWISE_AND_ASSIGN; Text.NextCh(); } // &=
+                else { currentLex = Lex.BITWISE_AND; }                                          // &
             }
             else if (Text.ch == '&')
             {
                 Text.NextCh();
-                if (Text.ch == '&')
+                if (Text.ch == '&') { currentLex = Lex.LOGICAL_AND; Text.NextCh(); }            // &&
+                else if (Text.ch == '=') { currentLex = Lex.BITWISE_AND_ASSIGN; Text.NextCh(); } // &=
+                else { currentLex = Lex.BITWISE_AND; }                                          // &
+            }
+            else if (Text.ch == '^')
+            {
+                Text.NextCh();
+                if (Text.ch == '=')
                 {
-                    currentLex = Lex.LOGICAL_AND;
+                    currentLex = Lex.BITWISE_XOR_ASSIGN; // ^=
                     Text.NextCh();
                 }
                 else
                 {
-                    currentLex = Lex.BITWISE_AND;
+                    currentLex = Lex.BITWISE_XOR; // ^
                 }
             }
             else if (Text.ch == '|')
@@ -511,102 +533,61 @@ namespace LexicalAnalizer
                 Text.NextCh();
                 if (Text.ch == '|')
                 {
-                    currentLex = Lex.LOGICAL_OR;
+                    currentLex = Lex.LOGICAL_OR; // ||
+                    Text.NextCh();
+                }
+                else if (Text.ch == '=')
+                {
+                    currentLex = Lex.BITWISE_OR_ASSIGN; // |=
                     Text.NextCh();
                 }
                 else
                 {
-                    currentLex = Lex.BITWISE_OR;
+                    currentLex = Lex.BITWISE_OR; // |
                 }
             }
-            else if (Text.ch == '^')
-            {
-                currentLex = Lex.BITWISE_XOR;
-                Text.NextCh();
-            }
-            else if (Text.ch == '~')
-            {
-                currentLex = Lex.BITWISE_NOT;
-                Text.NextCh();
-            }
+
+
+
+            else if (Text.ch == '~') { currentLex = Lex.BITWISE_NOT; Text.NextCh(); }      // ~
             else if (Text.ch == '?')
             {
-                currentLex = Lex.QUESTION;
                 Text.NextCh();
+                if (Text.ch == '.') { currentLex = Lex.OPTIONAL_CHAINING; Text.NextCh(); } // ?.
+                else if (Text.ch == '?') { currentLex = Lex.NULLISH_COALESCING; Text.NextCh(); } // ??
+                else { currentLex = Lex.QUESTION; }                                        // ?
             }
-            else if (Text.ch == '(')
-            {
-                currentLex = Lex.LEFT_PAREN;
-                Text.NextCh();
-            }
-            else if (Text.ch == ')')
-            {
-                currentLex = Lex.RIGHT_PAREN;
-                Text.NextCh();
-            }
-            else if (Text.ch == '{')
-            {
-                currentLex = Lex.LEFT_BRACE;
-                Text.NextCh();
-            }
-            else if (Text.ch == '}')
-            {
-                currentLex = Lex.RIGHT_BRACE;
-                Text.NextCh();
-            }
-            else if (Text.ch == '[')
-            {
-                currentLex = Lex.LEFT_BRACKET;
-                Text.NextCh();
-            }
-            else if (Text.ch == ']')
-            {
-                currentLex = Lex.RIGHT_BRACKET;
-                Text.NextCh();
-            }
-            else if (Text.ch == '"' || Text.ch == '\'' || Text.ch == '`')
-            {
-                JString(Text.ch);
-                currentLex = Lex.STR;
-            }
-            else if (Text.ch == Text.chEOT)
-            {
-                currentLex = Lex.EOT;
-            }
-            else
-            {
-                Error.LexError("Недопустимый символ");
-            }
+            else if (Text.ch == '"' || Text.ch == '\'' || Text.ch == '`') { JString(Text.ch); currentLex = Lex.STR; } // строки
+            else if (Text.ch == Text.chEOT) { currentLex = Lex.EOT; }
+            else { Error.LexError("Недопустимый символ"); }
 
-            // Collect statistics
+            // Сбор статистики
             if (currentLex != Lex.EOT)
             {
-                if (lexemeCounts.ContainsKey(currentLex))
-                {
-                    lexemeCounts[currentLex]++;
-                }
-                else
-                {
-                    lexemeCounts[currentLex] = 1;
-                }
+                if (lexemeCounts.ContainsKey(currentLex)) lexemeCounts[currentLex]++;
+                else lexemeCounts[currentLex] = 1;
                 totalLexemes++;
 
-                // If it's an identifier, save information about it
                 if (currentLex == Lex.NAME)
                 {
-                    int lineNum = Text.GetCurrentLine();
                     string fileName = Environment.GetCommandLineArgs().Length > 1 ? Environment.GetCommandLineArgs()[1] : "unknown";
                     identifiersInfo.Add(new IdentifierInfo
                     {
                         Name = name,
                         File = fileName,
-                        Line = lineNum
+                        Line = currentLine,
+                        Column = currentColumn
                     });
                 }
-                Console.WriteLine(currentLex);
+
+
+
+
+
+                //Console.WriteLine(currentLex);
             }
-            
             return currentLex;
         }
+
     }
 }
